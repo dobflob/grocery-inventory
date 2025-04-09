@@ -1,5 +1,5 @@
 from models import Base, session, engine, Brands, Products
-from datetime import datetime
+from datetime import datetime, date
 import time
 import csv
 
@@ -59,6 +59,14 @@ def seed_products():
 
         session.commit()
 
+def format_date(date_obj):
+    print(date_obj)
+
+def format_price(price_int):
+    price_float = float(price_int/100)
+    formatted_price = f'{price_float:.2f}'
+    return f'${formatted_price}'
+
 def menu():
     while True:
         print('''
@@ -86,6 +94,9 @@ def app():
         choice = menu()
 
         if choice == 'V':
+            # TODO: maybe create a function to validate the selection so that this main app function isn't giant when the app is finished?
+            # TODO: add a function that displays the product information in a way that's more visually appealing and readable
+
             # view product's inventory - get product by Id; if the Id cannot be converted to an integer, display an error message and re-prompt the user for a valid id. 
             id_error = True
             while id_error:
@@ -121,12 +132,32 @@ Please try again.
                         time.sleep(1.5) 
         elif choice == 'N':
             # add new product
-            print('\nselected: Add Product\n')
+            name = input('>> Enter the product name:  ')
+            quantity = input('>> Enter the quantity:  ')
+            price = input('>> Enter the price (ex. 5.99):  ')
+            brand = input('>> Enter the brand of the product:  ')
+
         elif choice == 'A':
             # view analysis
-            print('\nselected: View Analysis\n')
+            # most expensive item = sort by price highest to lowest and return the first product?
+            # least expensive item = sort by price lowest to highest and return the first product?
+            # most common brand = which brand has the most products in the db 
+            print('product analysis')
         elif choice == 'B':
-            print('\nselected: Backup Database\n')
+            current_date = date.today()
+            print(current_date)
+            with open(f'backup_{current_date}.csv', 'w', newline='') as csvfile:
+                products = session.query(Products)
+                field_names = ['product_name', 'product_price', 'product_quantity', 'date_updated', 'brand_name']
+                writer = csv.DictWriter(csvfile, fieldnames=field_names)
+                writer.writeheader()
+                
+                for product in products:
+                    #formatted_date = format_date(product['date_updated'])
+                    formatted_price = format_price(product.product_price)
+                    brand = session.query(Brands).filter(Brands.brand_id==product.brand_id).one_or_none()
+
+                    writer.writerow({'product_name': product.product_name, 'product_price': formatted_price, 'product_quantity': product.product_quantity, 'date_updated': product.date_updated, 'brand_name': brand.brand_name})
         else:
             print('\nGoodbye\n')
             app_running = False
