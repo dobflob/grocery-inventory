@@ -1,5 +1,6 @@
 from models import Base, session, engine, Brands, Products
 from datetime import datetime
+import time
 import csv
 
 # Format the date string into a datetime object in the format 'mm/dd/yyyy'
@@ -85,8 +86,39 @@ def app():
         choice = menu()
 
         if choice == 'V':
-            # view product's inventory
-            print('\nselected: View Product Inventory\n')
+            # view product's inventory - get product by Id; if the Id cannot be converted to an integer, display an error message and re-prompt the user for a valid id. 
+            id_error = True
+            while id_error:
+                try:
+                    selected_id = int(input('\n>> Enter the id of the product you want to view:  '))
+                except ValueError:
+                    print('''
+                          
+********* ID ERROR *********
+                    
+Product id must be a number.
+Please try again.
+                    
+****************************
+
+    ''')
+                else:
+                    id_error = False
+                    selected_product = session.query(Products).filter(Products.product_id==selected_id).one_or_none()
+                    
+                    if selected_product:
+                        print(selected_product)
+                    else:
+                        print(f'''
+
+NOT FOUND
+---------                              
+Product with the id: {selected_id} not found. 
+Please try again.
+
+''')
+                        # wait 1.5 seconds before displaying the main menu again
+                        time.sleep(1.5) 
         elif choice == 'N':
             # add new product
             print('\nselected: Add Product\n')
