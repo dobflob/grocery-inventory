@@ -36,7 +36,7 @@ def seed_products():
 
         for row in data:
             product_exists = session.query(Products).filter(Products.product_name==row['product_name']).one_or_none()
-
+            # if the produce exists, need to check if the updated date is greater than the existing - if it is, then we need to update the fields that have changed (all but product_name or just the ones that don't match?)
             if product_exists == None:
                 name=row['product_name']
                 price_str=row['product_price']
@@ -47,15 +47,14 @@ def seed_products():
                 updated_date=clean_date(date_str)
                 
                 brand_exists = session.query(Brands).filter(Brands.brand_name==row['brand_name']).one_or_none()
-                if brand_exists == None:
-                    print(brand_exists)
-                else:
+                if brand_exists:
                     brand_id=brand_exists.brand_id
-
-                
+                else:
+                    #what should happen if a brand isn't in the brand table but is listed on the inventory list? do you update the brand table and come back?
+                    print(brand_exists)
             
-                new_product = Products(product_name=name, product_price=price, product_quantity=quantity, date_updated=updated_date, brand_id=brand_id)
-                session.add(new_product)
+                new_product = Products(product_name=name, product_price=price, product_quantity=quantity, date_updated=updated_date,brand_id=brand_id)
+                session.add(new_product)                
 
         session.commit()
 
