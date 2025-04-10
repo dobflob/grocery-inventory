@@ -10,7 +10,8 @@ def clean_date(date_str):
 
 # Format the price string into an int 
 def clean_price(price_str):
-    price_str = price_str[1:]
+    if price_str[0] == '$':
+        price_str = price_str[1:]
     price_float = float(price_str)
     return int(price_float * 100)
 
@@ -36,7 +37,7 @@ def seed_products():
 
         for row in data:
             product_exists = session.query(Products).filter(Products.product_name==row['product_name']).one_or_none()
-            # if the produce exists, need to check if the updated date is greater than the existing - if it is, then we need to update the fields that have changed (all but product_name or just the ones that don't match?)
+            # if the product exists, need to check if the updated date is greater than the existing - if it is, then we need to update the fields that have changed (all but product_name or just the ones that don't match?) 
             if product_exists == None:
                 name=row['product_name']
                 price_str=row['product_price']
@@ -48,18 +49,21 @@ def seed_products():
                 
                 brand_exists = session.query(Brands).filter(Brands.brand_name==row['brand_name']).one_or_none()
                 if brand_exists:
-                    brand_id=brand_exists.brand_id
+                    brand_id = brand_exists.brand_id
                 else:
-                    #what should happen if a brand isn't in the brand table but is listed on the inventory list? do you update the brand table and come back?
-                    print(brand_exists)
-            
+                    new_brand = Brands(brand_name=row['brand_name'])
+                    session.add(new_brand)
+                    session.commit()
+                    brand_id = new_brand.brand_id
+
                 new_product = Products(product_name=name, product_price=price, product_quantity=quantity, date_updated=updated_date,brand_id=brand_id)
-                session.add(new_product)                
+                session.add(new_product)        
 
         session.commit()
 
 def format_date(date_obj):
-    print(date_obj)
+    date_str = date_obj.strftime('%m/%d/%Y')
+    return date_str
 
 def format_price(price_int):
     price_float = float(price_int/100)
@@ -131,10 +135,62 @@ Please try again.
                         time.sleep(1.5) 
         elif choice == 'N':
             # add new product
-            name = input('>> Enter the product name:  ')
-            quantity = input('>> Enter the quantity:  ')
-            price = input('>> Enter the price (ex. 5.99):  ')
-            brand = input('>> Enter the brand of the product:  ')
+
+            product_name = input('\n>> Enter the product name:  ')
+            quantity_error = True
+            while quantity_error:
+                try:
+                    quantity = int(input('\n>> Enter the quantity:  '))
+                    if quantity:
+                        quantity_error = False
+                except ValueError:
+                    print('''
+                          
+******** QUANTITY ERROR ********
+                    
+Quantity must be a whole number.
+Please try again.
+                    
+********************************
+
+    ''')
+
+            price_error = True
+            while price_error:
+                try:
+                    price = input('\n>> Enter the price (ex. 5.99):  ')
+                    cleaned_price = clean_price(price)
+                    if clean_price:
+                        price_error = False
+                except ValueError:
+                    print('''
+                          
+********** PRICE ERROR ************
+                    
+Price must be a number. (e.g. 5.99)
+Please try again.
+                    
+***********************************
+
+    ''')
+
+            name = input('\n>> Enter the brand of the product:  ')
+            brand_exists = session.query(Brands).filter(Brands.brand_name==name).one_or_none()
+            if brand_exists:
+                brand_id = brand_exists.brand_id
+            else:
+                new_brand=Brands(brand_name=name)
+                session.add(new_brand)
+                session.commit()
+                brand_id=new_brand.brand_id
+                print(f'brand: {brand_id}')
+            updated_date = date.today()
+
+            new_product = Products(product_name=product_name, product_price=cleaned_price, product_quantity=quantity, date_updated=updated_date,brand_id=brand_id)
+            
+            session.add(new_product)
+            session.commit()
+            
 
         elif choice == 'A':
             # view analysis
@@ -144,7 +200,7 @@ Please try again.
             print('product analysis')
         elif choice == 'B':
             current_date = date.today()
-            print(current_date)
+
             with open(f'backup_{current_date}.csv', 'w', newline='') as csvfile:
                 products = session.query(Products)
                 field_names = ['product_name', 'product_price', 'product_quantity', 'date_updated', 'brand_name']
@@ -152,11 +208,14 @@ Please try again.
                 writer.writeheader()
                 
                 for product in products:
-                    #formatted_date = format_date(product['date_updated'])
+                    formatted_date = format_date(product.date_updated)
                     formatted_price = format_price(product.product_price)
                     brand = session.query(Brands).filter(Brands.brand_id==product.brand_id).one_or_none()
 
-                    writer.writerow({'product_name': product.product_name, 'product_price': formatted_price, 'product_quantity': product.product_quantity, 'date_updated': product.date_updated, 'brand_name': brand.brand_name})
+                    writer.writerow({'product_name': product.product_name, 'product_price': formatted_price, 'product_quantity': product.product_quantity, 'date_updated': formatted_date, 'brand_name': brand.brand_name})
+            print(f'\nBackup successfully created: backup_{current_date}.csv\n')
+            # wait 1.5 seconds before displaying the main menu again
+            time.sleep(1.5) 
         else:
             print('\nGoodbye\n')
             app_running = False
