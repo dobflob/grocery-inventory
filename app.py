@@ -229,7 +229,14 @@ Please try again.
             product_list = session.query(Products)
             most_expensive = product_list.order_by(Products.product_price.desc()).first()
             least_expensive = product_list.order_by(Products.product_price).first()
-            brands = product_list.group_by(Products.brand_id).all()
+            brands_by_count = session.query(Products.brand_id,func.count(Products.brand_id)).group_by(Products.brand_id).all()
+            most_common=brands_by_count[0]
+            for brand in brands_by_count:
+                if brand[1] > most_common[1]:
+                    most_common=brand
+
+            most_common_brand=session.query(Brands.brand_name).filter(Brands.brand_id==most_common[0])
+
             print(f'''
 PRODUCT ANALYSIS
 ----------------
@@ -237,7 +244,7 @@ Most Expensive Item: {most_expensive.product_name} (${most_expensive.product_pri
 
 Least Expensive Item: {least_expensive.product_name} (${least_expensive.product_price/100})
                   
-Most Common Brand: {brands}
+Most Common Brand: {most_common_brand[0][0]}
 
 ''')
             
