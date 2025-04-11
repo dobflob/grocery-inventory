@@ -1,12 +1,21 @@
 from models import Base, session, engine, Brands, Products
 from datetime import datetime, date
+from sqlalchemy import select, func
 import time
 import csv
+
+#TODO: make a function to add a product. use this function in the seed_products function as well as when the user opts to add a new product
+
+#TODO: make a function to add a brand. use this function everywhere we check to see if the brand exists and it doesn't currently.
+
+#TODO: make a function to edit a product's information. Use this function within 'view' product where users can update the product their viewing as well as in the seed_products function when a product name is found that's already in the db but the date_updated is more recent, so we need to update the info in the db.
+
+#TODO: move logic our of the app() function to ensure separation of concerns
 
 # Format the date string into a datetime object in the format 'mm/dd/yyyy'
 def clean_date(date_str):
     date = datetime.strptime(date_str, '%m/%d/%Y')
-    return date
+    return date.date()
 
 # Format the price string into an int 
 def clean_price(price_str):
@@ -37,8 +46,28 @@ def seed_products():
 
         for row in data:
             product_exists = session.query(Products).filter(Products.product_name==row['product_name']).one_or_none()
-            # if the product exists, need to check if the updated date is greater than the existing - if it is, then we need to update the fields that have changed (all but product_name or just the ones that don't match?) 
-            if product_exists == None:
+            # if the product exists, need to check if the updated date is greater than the existing - if it is, then we need to update the fields that have changed (all but product_name or just the ones that don't match?)
+            if product_exists:
+                row_date = clean_date(row['date_updated'])
+                if row_date > product_exists.date_updated:
+                    price_str=row['product_price']
+                    product_exists.product_price=clean_price(price_str)
+                    product_exists.product_quantity=row['product_quantity']
+                    date_str=row['date_updated']
+                    product_exists.date_updated=clean_date(date_str)
+
+                    brand_exists = session.query(Brands).filter(Brands.brand_name==row['brand_name']).one_or_none()
+                    if brand_exists:
+                        product_exists.brand_id = brand_exists.brand_id
+                    else:
+                        new_brand = Brands(brand_name=row['brand_name'])
+                        session.add(new_brand)
+                        session.commit()
+                        product_exists.brand_id = new_brand.brand_id
+
+                    session.commit()
+
+            elif product_exists == None:
                 name=row['product_name']
                 price_str=row['product_price']
                 price=clean_price(price_str)
@@ -57,7 +86,7 @@ def seed_products():
                     brand_id = new_brand.brand_id
 
                 new_product = Products(product_name=name, product_price=price, product_quantity=quantity, date_updated=updated_date,brand_id=brand_id)
-                session.add(new_product)        
+                session.add(new_product)
 
         session.commit()
 
@@ -191,13 +220,29 @@ Please try again.
             session.add(new_product)
             session.commit()
             
+            time.sleep(1.5)
+            
 
         elif choice == 'A':
             # view analysis
             # most expensive item = sort by price highest to lowest and return the first product?
+            product_list = session.query(Products)
+            most_expensive = product_list.order_by(Products.product_price.desc()).first()
+            least_expensive = product_list.order_by(Products.product_price).first()
+            brands = product_list.group_by(Products.brand_id).all()
+            print(f'''
+PRODUCT ANALYSIS
+----------------
+Most Expensive Item: {most_expensive.product_name} (${most_expensive.product_price/100})
+
+Least Expensive Item: {least_expensive.product_name} (${least_expensive.product_price/100})
+                  
+Most Common Brand: {brands}
+
+''')
+            
             # least expensive item = sort by price lowest to highest and return the first product?
             # most common brand = which brand has the most products in the db 
-            print('product analysis')
         elif choice == 'B':
             current_date = date.today()
 
@@ -218,7 +263,7 @@ Please try again.
             time.sleep(1.5) 
         else:
             print('\nGoodbye\n')
-            app_running = False
+            return
 
 if __name__ == '__main__':
     Base.metadata.create_all(engine)
