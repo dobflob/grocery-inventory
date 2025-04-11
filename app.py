@@ -150,7 +150,7 @@ def add_product(product_info = ()):
             update_product_info(product_exists.product_name, entered_product_info)
             session.commit()
         else:
-            new_product = Products(product_name=name, product_price=price, product_quantity=quantity, date_updated=date_updated, brand_id=brand_id)
+            new_product = Products(product_name=name, product_price=price, product_quantity=quantity, date_updated=updated_date, brand_id=brand_id)
             session.add(new_product)
             session.commit()
 
