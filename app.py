@@ -68,24 +68,67 @@ def create_backup_csv():
             writer.writerow({'product_name': product.product_name, 'product_price': price_str, 'product_quantity': product.product_quantity, 'date_updated': date_str, 'brand_name': brand.brand_name})
     print(f'\nBackup successfully created: backup_{current_date}.csv\n')
 
+def enter_product_info():
+    name=input('\n>> Enter the product name:  ')
+
+    price_error = True
+    while price_error:
+        try:
+            price = clean_price((input('\n>> Enter the price (ex: 5.99):  ')))
+        except ValueError:
+            print('Price Value Error...')
+        else:
+            price_error = False
+    
+    quantity_error = True
+    while quantity_error:
+        try:
+            quantity = int(input('\n>> Enter product quantity (ex: 10):  '))
+        except ValueError:
+            print('Quantity Value Error...')
+        else:
+            quantity_error = False
+    updated_date = date.today()
+    brand_name = input("\n>> Enter the product's brand (ex: Kraft):  ")
+
+    brand_exists = session.query(Brands).filter(Brands.brand_name==brand_name).one_or_none()
+    if brand_exists:
+        brand_id = brand_exists.brand_id
+    else:
+        add_brand(brand_name)
+        session.commit()
+        new_brand = session.query(Brands).filter(Brands.brand_name==brand_name).first()
+        brand_id = new_brand.brand_id
+
+    return {'product_name': name, 'product_price': price, 'product_quantity': quantity, 'date_updated': updated_date, 'brand_id': brand_id}
+
 # compares each field for the current product record and the updated product record. For any field that doesn't match, that field will be updated for the existing product record.
-def update_product_info(existing_product_name, updated_product):
+def update_product_info(existing_product_name, updated_product = ()):
     existing_product = session.query(Products).filter(Products.product_name==existing_product_name).first()
 
-    existing_product.date_updated = updated_product['date_updated']
+    
+    if updated_product:
+        existing_product.date_updated = updated_product['date_updated']
+    else:
+        updated_product = enter_product_info()
 
     if existing_product.product_name != updated_product['product_name']:
         existing_product.product_name = updated_product['product_name']
+
     if existing_product.product_price != updated_product['product_price']:
         existing_product.product_price = updated_product['product_price']
+
     if existing_product.product_quantity != updated_product['product_quantity']:
         existing_product.product_quantity = updated_product['product_quantity']
-    if existing_product_name != updated_product['brand_name']:
+
+    if existing_product.brand_id != updated_product['brand_id']:
         brand_exists = session.query(Brands).filter(Brands.brand_name==updated_product['brand_name']).one_or_none()
         if brand_exists:
             existing_product.brand_id = brand_exists.brand_id
         else:
             add_brand(updated_product['brand_name'])
+            new_brand = session.query(Brands).filter(Brands.brand_name==existing_product_name).first()
+            existing_product.brand_id = new_brand.brand_id
 
 def add_brand(name):
     new_brand = Brands(brand_name=name)
@@ -113,44 +156,14 @@ def add_product(product_info = ()):
         new_product = Products(product_name=name, product_price=price, product_quantity=quantity, date_updated=updated_date,brand_id=brand_id)
         session.add(new_product)
     else:
-        name=input('\n>> Enter the product name:  ')
+        product_info = enter_product_info()
 
-        price_error = True
-        while price_error:
-            try:
-                price = clean_price((input('\n>> Enter the price (ex: 5.99):  ')))
-            except ValueError:
-                print('Price Value Error...')
-            else:
-                price_error = False
-        
-        quantity_error = True
-        while quantity_error:
-            try:
-                quantity = int(input('\n>> Enter product quantity (ex: 10):  '))
-            except ValueError:
-                print('Quantity Value Error...')
-            else:
-                quantity_error = False
-        updated_date = date.today()
-        brand_name = input("\n>> Enter the product's brand (ex: Kraft):  ")
-
-        brand_exists = session.query(Brands).filter(Brands.brand_name==brand_name).one_or_none()
-        if brand_exists:
-            brand_id = brand_exists.brand_id
-        else:
-            add_brand(brand_name)
-            session.commit()
-            new_brand = session.query(Brands).filter(Brands.brand_name==brand_name).first()
-            brand_id = new_brand.brand_id
-
-        entered_product_info = {'product_name': name, 'product_price': price, 'product_quantity': quantity, 'date_updated': updated_date, 'brand_name': brand_name}
-        product_exists = session.query(Products).filter(Products.product_name==name).one_or_none()
+        product_exists = session.query(Products).filter(Products.product_name==product_info['product_name']).one_or_none()
         if product_exists:
-            update_product_info(product_exists.product_name, entered_product_info)
+            update_product_info(product_exists.product_name, product_info)
             session.commit()
         else:
-            new_product = Products(product_name=name, product_price=price, product_quantity=quantity, date_updated=updated_date, brand_id=brand_id)
+            new_product = Products(product_name=product_info['product_name'], product_price=product_info['product_price'], product_quantity=product_info['product_quantity'], date_updated=product_info['date_updated'], brand_id=product_info['brand_id'])
             session.add(new_product)
             session.commit()
 
@@ -184,19 +197,10 @@ def format_price_str(price_int):
     price_str = f'${price_float:.2f}'
     return price_str
 
-def display_product():
-    id_error = True
-    while id_error:
-        try:
-            entered_id = int(input('\n>> Enter the id of the product you want to view:  '))
-        except ValueError:
-            print('Id Value Error...')
-        else:
-            id_error = False
-            selected_product = session.query(Products).filter(Products.product_id==entered_id).one_or_none()
-            if selected_product:
-                brand_name = session.query(Brands.brand_name).filter(Brands.brand_id==selected_product.brand_id).first()
-                print(f"""
+def display_product(selected_product):
+    if selected_product:
+        brand_name = session.query(Brands.brand_name).filter(Brands.brand_id==selected_product.brand_id).first()
+        print(f"""
 PRODUCT DETAILS
 ---------------
 Product: {selected_product.product_name}
@@ -205,15 +209,44 @@ Quantity: {selected_product.product_quantity}
 Last Updated: {format_date_str(selected_product.date_updated)}
 Brand: {brand_name[0]}
 """)
-            elif selected_product == None:
-                # call display_error function once created passing in argument so correct message is displayed
-                print(f"""
+    elif selected_product == None:
+        # call display_error function once created passing in argument so correct message is displayed
+        print("""
 NOT FOUND
 ---------                              
-Product with the id: {entered_id} not found. 
+Product not found. 
 Please try again.
 
 """)
+                
+def get_product():
+    id_error = True
+    while id_error:
+        try:
+            entered_id = int(input('\n>> Enter the product Id:  '))
+        except ValueError:
+            print('Id value error...')
+        else:
+            return session.query(Products).filter(Products.product_id==entered_id).one_or_none()
+
+def product_menu():
+    while True:
+        print('''
+PRODUCT MENU
+------------
+E - Edit Product
+D - Delete Product
+M - Main Menu
+''')
+        choice = input('>>> What would you like to do?  ')
+        choice = choice.upper()
+        if choice in ['E', 'D', 'M']:
+            return choice
+        else:
+            input('''
+Please choose an option from the menu (E, D, M).
+Press enter to make a selection.
+''')
 
 def menu():
     while True:
@@ -226,7 +259,7 @@ A - View Analysis
 B - Backup the Database
 Q - Quit
 ''')
-        choice = input('>> What would you like to do?  ')
+        choice = input('> What would you like to do?  ')
         choice = choice.upper()
         if choice in ['V', 'N', 'A', 'B', 'Q']:
             return choice
@@ -242,8 +275,17 @@ def app():
         choice = menu()
 
         if choice == 'V':
-            display_product()
-            time.sleep(1.5) 
+            selected_product = get_product()
+            display_product(selected_product)
+            if selected_product:
+                product_choice = product_menu()
+
+                if product_choice == 'E':
+                    update_product_info(selected_product.product_name)
+                    session.commit()
+                elif product_choice == 'D':
+                    print('delete is on my todo list...')
+            time.sleep(1.5)
         elif choice == 'N':
             # add new product
             add_product()
