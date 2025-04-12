@@ -4,8 +4,8 @@ from sqlalchemy import select, func
 import time
 import csv
 
-#TODO: make a function that finds the right error message to display based on the passed arg
-#TODO: add delete product functionality to product menu
+#TODO: change how you exit the product menu and application - would be nice to be able to type 'quit' at any point to exist the app or 'menu' to go back to the main menu... think on it
+#TODO: add additional analysis and figure out how to actually find the most common brand
 
 # Format the date string into a datetime object in the format 'mm/dd/yyyy'
 def clean_date(date_str):
@@ -162,8 +162,15 @@ def add_brand(name):
     new_brand = Brands(brand_name=name)
     session.add(new_brand)
 
+def delete_product(product):
+    name = product.product_name
+    name.capitalize()
+    session.delete(product)
+    session.commit()
+    print(f'\n{name} was deleted.\n')
+
 # If product info is passed to add_product, it will add that information to the database; if not, it will ask the user for product_info via a series of inputs. once all info is entered, it will add the new product to the db.
-def add_product(product_info = ()):
+def add_product(product_info = {}):
 
     if product_info:
         name=product_info['product_name']
@@ -303,7 +310,7 @@ def app():
                     update_product_info(selected_product.product_name)
                     session.commit()
                 elif product_choice == 'D':
-                    print('delete is on my todo list...')
+                    delete_product(selected_product)
                 elif product_choice == 'Q':
                     continue
             time.sleep(1.5)
