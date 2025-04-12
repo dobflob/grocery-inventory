@@ -37,7 +37,6 @@ def seed_products():
 
         for row in data:
             product_exists = session.query(Products).filter(Products.product_name==row['product_name']).one_or_none()
-            # if the product exists, need to check if the updated date is greater than the existing - if it is, then we need to update the fields that have changed (all but product_name or just the ones that don't match?)
             if product_exists:
                 row_date_obj = clean_date(row['date_updated'])
                 if row_date_obj > product_exists.date_updated:
@@ -67,6 +66,26 @@ def create_backup_csv():
             writer.writerow({'product_name': product.product_name, 'product_price': price_str, 'product_quantity': product.product_quantity, 'date_updated': date_str, 'brand_name': brand.brand_name})
     print(f'\nBackup successfully created: backup_{current_date}.csv\n')
 
+def display_error(error_field):
+    if error_field in ('price', 'quantity', 'date', 'id'):
+        error_string = error_field + ' error'
+        print(f'''
+*** {error_string.upper()} ***
+
+The value you entered for {error_field} is invalid.
+Please try again.
+
+''')
+    elif error_field in ('product', 'brand'):
+        error_string = error_field + ' not found'
+        print(f'''
+*** {error_string.upper()} ***
+
+The {error_field.capitalize()} you entered could not be found.
+Please try again.
+
+''')
+
 def enter_product_info():
     name=input('\n>> Enter the product name:  ')
 
@@ -75,7 +94,7 @@ def enter_product_info():
         try:
             price = clean_price((input('\n>> Enter the price (ex: 5.99):  ')))
         except ValueError:
-            print('Price Value Error...')
+            display_error('price')
         else:
             price_error = False
     
@@ -84,10 +103,19 @@ def enter_product_info():
         try:
             quantity = int(input('\n>> Enter product quantity (ex: 10):  '))
         except ValueError:
-            print('Quantity Value Error...')
+            display_error('quantity')
         else:
             quantity_error = False
-    updated_date = date.today()
+
+    date_error = True
+    while date_error:
+        try:
+            updated_date = clean_date(input('\n>> Enter the last updated date of the product (ex: 4/12/2025):  '))
+        except ValueError:
+            display_error('date')
+        else:
+            date_error = False
+
     brand_name = input("\n>> Enter the product's brand (ex: Kraft):  ")
 
     brand_exists = session.query(Brands).filter(Brands.brand_name==brand_name).one_or_none()
@@ -105,11 +133,11 @@ def enter_product_info():
 def update_product_info(existing_product_name, updated_product = ()):
     existing_product = session.query(Products).filter(Products.product_name==existing_product_name).first()
 
-    
     if updated_product:
         existing_product.date_updated = updated_product['date_updated']
     else:
         updated_product = enter_product_info()
+        existing_product.date_updated = updated_product['date_updated']
 
     if existing_product.product_name != updated_product['product_name']:
         existing_product.product_name = updated_product['product_name']
@@ -121,7 +149,7 @@ def update_product_info(existing_product_name, updated_product = ()):
         existing_product.product_quantity = updated_product['product_quantity']
 
     if existing_product.brand_id != updated_product['brand_id']:
-        brand_exists = session.query(Brands).filter(Brands.brand_name==updated_product['brand_name']).one_or_none()
+        brand_exists = session.query(Brands).filter(Brands.brand._id==updated_product['brand_id']).one_or_none()
         if brand_exists:
             existing_product.brand_id = brand_exists.brand_id
         else:
@@ -134,7 +162,6 @@ def add_brand(name):
     session.add(new_brand)
 
 # If product info is passed to add_product, it will add that information to the database; if not, it will ask the user for product_info via a series of inputs. once all info is entered, it will add the new product to the db.
-# TODO: feels like checking if a brand exists could be it's own function since it has to happen a few times.... think this over
 def add_product(product_info = ()):
 
     if product_info:
@@ -208,14 +235,7 @@ Last Updated: {format_date_str(selected_product.date_updated)}
 Brand: {brand_name[0]}
 """)
     elif selected_product == None:
-        # call display_error function once created passing in argument so correct message is displayed
-        print("""
-NOT FOUND
----------                              
-Product not found. 
-Please try again.
-
-""")
+        display_error('product')
                 
 def get_product():
     id_error = True
@@ -223,7 +243,7 @@ def get_product():
         try:
             entered_id = int(input('\n>> Enter the product Id:  '))
         except ValueError:
-            print('Id value error...')
+            display_error('id')
         else:
             return session.query(Products).filter(Products.product_id==entered_id).one_or_none()
 
