@@ -38,11 +38,11 @@ def seed_products():
         for row in data:
             product_exists = session.query(Products).filter(Products.product_name==row['product_name']).one_or_none()
             if product_exists:
-                row_date_obj = clean_date(row['date_updated'])
-                if row_date_obj > product_exists.date_updated:
-                    row['product_price'] = clean_price(row['product_price'])
-                    row['date_updated'] = row_date_obj
-                    update_product_info(product_exists.product_name,row)
+                brand = session.query(Brands).filter(Brands.brand_id==product_exists.brand_id).first()
+                row['brand_id'] = brand.brand_id
+                row['date_updated'] = clean_date(row['date_updated'])
+                row['product_price'] = clean_price(row['product_price'])
+                update_product_info(product_exists.product_name,row)
 
             elif product_exists == None:
                 add_product(row)
@@ -130,32 +130,33 @@ def enter_product_info():
     return {'product_name': name, 'product_price': price, 'product_quantity': quantity, 'date_updated': updated_date, 'brand_id': brand_id}
 
 # compares each field for the current product record and the updated product record. For any field that doesn't match, that field will be updated for the existing product record.
-def update_product_info(existing_product_name, updated_product = ()):
+def update_product_info(existing_product_name, updated_product_info = {}):
     existing_product = session.query(Products).filter(Products.product_name==existing_product_name).first()
+    
+    if not updated_product_info:
+        updated_product_info = enter_product_info()
 
-    if updated_product:
-        existing_product.date_updated = updated_product['date_updated']
-    else:
-        updated_product = enter_product_info()
-        existing_product.date_updated = updated_product['date_updated']
+    if updated_product_info['date_updated'] > existing_product.date_updated:
+        existing_product.date_updated = updated_product_info['date_updated']
 
-    if existing_product.product_name != updated_product['product_name']:
-        existing_product.product_name = updated_product['product_name']
+        if existing_product.product_name != updated_product_info['product_name']:
+            existing_product.product_name = updated_product_info['product_name']
 
-    if existing_product.product_price != updated_product['product_price']:
-        existing_product.product_price = updated_product['product_price']
+        if existing_product.product_price != updated_product_info['product_price']:
+            existing_product.product_price = updated_product_info['product_price']
 
-    if existing_product.product_quantity != updated_product['product_quantity']:
-        existing_product.product_quantity = updated_product['product_quantity']
-
-    if existing_product.brand_id != updated_product['brand_id']:
-        brand_exists = session.query(Brands).filter(Brands.brand._id==updated_product['brand_id']).one_or_none()
-        if brand_exists:
-            existing_product.brand_id = brand_exists.brand_id
-        else:
-            add_brand(updated_product['brand_name'])
-            new_brand = session.query(Brands).filter(Brands.brand_name==existing_product_name).first()
-            existing_product.brand_id = new_brand.brand_id
+        if existing_product.product_quantity != updated_product_info['product_quantity']:
+            existing_product.product_quantity = updated_product_info['product_quantity']
+        
+        #logic problem here - if it's data being seeded that doesn't have a brand id, it has a brand name...
+        if existing_product.brand_id != updated_product_info['brand_id']:
+            brand_exists = session.query(Brands).filter(Brands.brand_id==updated_product_info['brand_id']).one_or_none()
+            if brand_exists:
+                existing_product.brand_id = brand_exists.brand_id
+            else:
+                add_brand(updated_product_info['brand_name'])
+                new_brand = session.query(Brands).filter(Brands.brand_name==existing_product_name).first()
+                existing_product.brand_id = new_brand.brand_id
 
 def add_brand(name):
     new_brand = Brands(brand_name=name)
