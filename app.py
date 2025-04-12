@@ -4,9 +4,8 @@ from sqlalchemy import select, func
 import time
 import csv
 
-#TODO: make a function to add a brand. use this function everywhere we check to see if the brand exists and it doesn't currently.
-
-#TODO: make a function to edit a product's information. Use this function within 'view' product where users can update the product their viewing as well as in the seed_products function when a product name is found that's already in the db but the date_updated is more recent, so we need to update the info in the db.
+#TODO: make a function that finds the right error message to display based on the passed arg
+#TODO: add delete product functionality to product menu
 
 # Format the date string into a datetime object in the format 'mm/dd/yyyy'
 def clean_date(date_str):
@@ -136,7 +135,6 @@ def add_brand(name):
 
 # If product info is passed to add_product, it will add that information to the database; if not, it will ask the user for product_info via a series of inputs. once all info is entered, it will add the new product to the db.
 # TODO: feels like checking if a brand exists could be it's own function since it has to happen a few times.... think this over
-# TODO: make a function that prints an error that takes in the field where the error is occuring, then uses conditional logic to pick to corresponding error to print
 def add_product(product_info = ()):
 
     if product_info:
@@ -236,15 +234,15 @@ PRODUCT MENU
 ------------
 E - Edit Product
 D - Delete Product
-M - Main Menu
+Q - Main Menu
 ''')
         choice = input('>>> What would you like to do?  ')
         choice = choice.upper()
-        if choice in ['E', 'D', 'M']:
+        if choice in ['E', 'D', 'Q']:
             return choice
         else:
             input('''
-Please choose an option from the menu (E, D, M).
+Please choose an option from the menu (E, D, Q).
 Press enter to make a selection.
 ''')
 
@@ -257,7 +255,7 @@ V - View Product
 N - Add Product
 A - View Analysis
 B - Backup the Database
-Q - Quit
+Q - Exit Application
 ''')
         choice = input('> What would you like to do?  ')
         choice = choice.upper()
@@ -285,6 +283,8 @@ def app():
                     session.commit()
                 elif product_choice == 'D':
                     print('delete is on my todo list...')
+                elif product_choice == 'Q':
+                    continue
             time.sleep(1.5)
         elif choice == 'N':
             # add new product
