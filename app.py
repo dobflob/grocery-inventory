@@ -1,11 +1,8 @@
 from models import Base, session, engine, Brands, Products
 from datetime import datetime, date
-from sqlalchemy import select, func
+from sqlalchemy import func
 import time
 import csv
-
-#TODO: change how you exit the product menu and application - would be nice to be able to type 'quit' at any point to exist the app or 'menu' to go back to the main menu... think on it
-#TODO: add additional analysis and figure out how to actually find the most common brand
 
 # Format the date string into a datetime object in the format 'mm/dd/yyyy'
 def clean_date(date_str):
@@ -66,6 +63,7 @@ def create_backup_csv():
             writer.writerow({'product_name': product.product_name, 'product_price': price_str, 'product_quantity': product.product_quantity, 'date_updated': date_str, 'brand_name': brand.brand_name})
     print(f'\nBackup successfully created: backup_{current_date}.csv\n')
 
+# Takes in the field being modified (or object being searched for) when the error occured and displays an appropriate message
 def display_error(error_field):
     if error_field in ('price', 'quantity', 'date', 'id'):
         error_string = error_field + ' error'
@@ -86,6 +84,7 @@ Please try again.
 
 ''')
 
+# Handles getting input from the user, cleaning the data, and returns a db ready product record
 def enter_product_info():
     name=input('\n>> Enter the product name:  ')
 
@@ -148,7 +147,6 @@ def update_product_info(existing_product_name, updated_product_info = {}):
         if existing_product.product_quantity != updated_product_info['product_quantity']:
             existing_product.product_quantity = updated_product_info['product_quantity']
         
-        #logic problem here - if it's data being seeded that doesn't have a brand id, it has a brand name...
         if existing_product.brand_id != updated_product_info['brand_id']:
             brand_exists = session.query(Brands).filter(Brands.brand_id==updated_product_info['brand_id']).one_or_none()
             if brand_exists:
@@ -169,7 +167,8 @@ def delete_product(product):
     session.commit()
     print(f'\n{name} was deleted.\n')
 
-# If product info is passed to add_product, it will add that information to the database; if not, it will ask the user for product_info via a series of inputs. once all info is entered, it will add the new product to the db.
+# If a product is passed in, it will add that information to the database
+# If there is no product, it will collect the info from the user before adding to the db
 def add_product(product_info = {}):
 
     if product_info:
@@ -200,10 +199,16 @@ def add_product(product_info = {}):
             session.add(new_product)
             session.commit()
 
+#TODO: additional analysis points - maybe product with the highest quantity, product with the lowest quantity, most recently updated product, etc.
 def analyze_products():
     product_list = session.query(Products)
     most_expensive = product_list.order_by(Products.product_price.desc()).first()
     least_expensive = product_list.order_by(Products.product_price).first()
+
+    highest_quantity = product_list.order_by(Products.product_quantity.desc()).first()
+    lowest_quantity = product_list.order_by(Products.product_quantity).first()
+
+    most_recent_update = product_list.order_by(Products.date_updated.desc()).first()
     brands_by_count = session.query(Products.brand_id,func.count(Products.brand_id)).group_by(Products.brand_id).all()
     most_common=brands_by_count[0]
     for brand in brands_by_count:
@@ -215,8 +220,13 @@ def analyze_products():
     print(f'''
 PRODUCT ANALYSIS
 ----------------
-Most Expensive Item: {most_expensive.product_name} (${most_expensive.product_price/100})
-Least Expensive Item: {least_expensive.product_name} (${least_expensive.product_price/100})         
+Most Expensive: {most_expensive.product_name} (${most_expensive.product_price/100})
+Least Expensive: {least_expensive.product_name} (${least_expensive.product_price/100}) 
+
+Highest Quantity: {highest_quantity.product_name} ({highest_quantity.product_quantity})
+Lowest Quantity: {lowest_quantity.product_name} ({lowest_quantity.product_quantity})
+
+Last Updated: {most_recent_update.product_name}
 Most Common Brand: {most_common_brand[0][0]}
 
 ''')
@@ -262,11 +272,12 @@ PRODUCT MENU
 ------------
 E - Edit Product
 D - Delete Product
-Q - Main Menu
+M - Main Menu
+Q - Exit Application
 ''')
         choice = input('>>> What would you like to do?  ')
         choice = choice.upper()
-        if choice in ['E', 'D', 'Q']:
+        if choice in ['E', 'D', 'M', 'Q']:
             return choice
         else:
             input('''
@@ -311,8 +322,10 @@ def app():
                     session.commit()
                 elif product_choice == 'D':
                     delete_product(selected_product)
-                elif product_choice == 'Q':
+                elif product_choice == 'M':
                     continue
+                elif product_choice == 'Q':
+                    return
             time.sleep(1.5)
         elif choice == 'N':
             # add new product
