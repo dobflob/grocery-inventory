@@ -236,13 +236,12 @@ def analyze_products():
     lowest_quantity = product_list.order_by(Products.product_quantity).first()
 
     most_recent_update = product_list.order_by(Products.date_updated.desc()).first()
-    brands_by_count = session.query(Products.brand_id,func.count(Products.brand_id)).group_by(Products.brand_id).all()
-    most_common=brands_by_count[0]
-    for brand in brands_by_count:
-        if brand[1] > most_common[1]:
-            most_common=brand
-
-    most_common_brand=session.query(Brands.brand_name).filter(Brands.brand_id==most_common[0])
+    
+    # this is closer, but need to read about joins in sqlalchemy
+    brand_count = func.count(Products.brand_id)
+    common_brand = session.query(Products.brand_id, brand_count).group_by(Products.brand_id).order_by(brand_count.desc()).first()
+    common_brand_name = session.query(Brands.brand_name).filter(Brands.brand_id==common_brand[0]).first()
+    
 
     print(f'''
 PRODUCT ANALYSIS
@@ -254,7 +253,7 @@ Highest Quantity: {highest_quantity.product_name} ({highest_quantity.product_qua
 Lowest Quantity: {lowest_quantity.product_name} ({lowest_quantity.product_quantity})
 
 Last Updated: {most_recent_update.product_name}
-Most Common Brand: {most_common_brand[0][0]}
+Most Common Brand: {common_brand_name.brand_name}
 
 ''')
 
