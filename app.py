@@ -16,6 +16,17 @@ def clean_price(price_str):
     price_float = float(price_str)
     return int(price_float * 100)
 
+# Format date back into a string m/d/yyyy
+def format_date_str(date_obj):
+    date_str = date_obj.strftime('%m/%d/%Y')
+    return date_str
+
+# Format price int back into a string
+def format_price_str(price_int):
+    price_float = float(price_int/100)
+    price_str = f'${price_float:.2f}'
+    return price_str
+
 def seed_brands():
     with open('brands.csv') as csvfile:
         data = csv.DictReader(csvfile)
@@ -48,9 +59,10 @@ def seed_products():
 
 def create_backup_csv():
     current_date = date.today()
+    products = session.query(Products)
+    brands = session.query(Brands)
 
-    with open(f'backup_{current_date}.csv', 'w', newline='') as csvfile:
-        products = session.query(Products)
+    with open(f'backup_inventory_{current_date}.csv', 'w', newline='') as csvfile:
         field_names = ['product_name', 'product_price', 'product_quantity', 'date_updated', 'brand_name']
         writer = csv.DictWriter(csvfile, fieldnames=field_names)
         writer.writeheader()
@@ -61,7 +73,22 @@ def create_backup_csv():
             brand = session.query(Brands).filter(Brands.brand_id==product.brand_id).one_or_none()
 
             writer.writerow({'product_name': product.product_name, 'product_price': price_str, 'product_quantity': product.product_quantity, 'date_updated': date_str, 'brand_name': brand.brand_name})
-    print(f'\nBackup successfully created: backup_{current_date}.csv\n')
+
+    with open(f'backup_brands_{current_date}.csv', 'w', newline='') as csvfile:
+        field_name = ['brand_name']
+        writer = csv.DictWriter(csvfile, fieldnames=field_name)
+        writer.writeheader()
+
+        for brand in brands:
+            brand_name = brand.brand_name
+
+            writer.writerow({'brand_name': brand_name})
+
+    print(f'''\n
+Backup successfully created: 
+ - backup_inventory_{current_date}.csv
+ - backup_brands_{current_date}.csv
+\n''')
 
 # Takes in the field being modified (or object being searched for) when the error occured and displays an appropriate message
 def display_error(error_field):
@@ -219,7 +246,7 @@ def analyze_products():
 
     print(f'''
 PRODUCT ANALYSIS
-----------------
+~~~~~~~~~~~~~~~~
 Most Expensive: {most_expensive.product_name} (${most_expensive.product_price/100})
 Least Expensive: {least_expensive.product_name} (${least_expensive.product_price/100}) 
 
@@ -231,21 +258,12 @@ Most Common Brand: {most_common_brand[0][0]}
 
 ''')
 
-def format_date_str(date_obj):
-    date_str = date_obj.strftime('%m/%d/%Y')
-    return date_str
-
-def format_price_str(price_int):
-    price_float = float(price_int/100)
-    price_str = f'${price_float:.2f}'
-    return price_str
-
 def display_product(selected_product):
     if selected_product:
         brand_name = session.query(Brands.brand_name).filter(Brands.brand_id==selected_product.brand_id).first()
         print(f"""
 PRODUCT DETAILS
----------------
+~~~~~~~~~~~~~~~
 Product: {selected_product.product_name}
 Price: {format_price_str(selected_product.product_price)}
 Quantity: {selected_product.product_quantity}
